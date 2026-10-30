@@ -108,6 +108,14 @@ pytest
 - doublepulsar.com: ["Anthropic hacked to deliver remote access trojan to Claude developer laptops worldwide"](https://doublepulsar.com/anthropic-hacked-to-deliver-remote-access-trojan-to-claude-developer-laptops-worldwide-1148a92baae2)
 - dev.to/@slabb: ["A trojanized Claude Code extension plants an SSH backdoor: the 7-point audit for your machine"](https://dev.to/slabb/a-trojanized-claude-code-extension-plants-an-ssh-backdoor-the-7-point-audit-for-your-machine-23cj)
 
+## Support
+
+This tool is free and MIT-licensed, no strings attached. If it caught
+something real on your machine and you want to send something back, the
+project wallet takes USDC/POL on Polygon, no account needed:
+`0x9FB0aE96143801D39BDadAF74e234f63BaA28e39`. Entirely optional - installing
+and running the scan asks nothing of you.
+
 ## License
 
 MIT, see [LICENSE](LICENSE).
