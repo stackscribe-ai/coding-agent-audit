@@ -99,6 +99,13 @@ none of the *currently known, documented* patterns matched. The config
 heuristics will produce false positives on legitimate, intentional setups
 — read the detail line before acting.
 
+## Found something (or nothing) worth knowing?
+
+Either result is useful to us: a star on the repo
+(https://github.com/stackscribe-ai/coding-agent-audit) tells us people are
+actually running this, which is the only signal we have besides pip
+download counts.
+
 ## Development
 
 ```bash
