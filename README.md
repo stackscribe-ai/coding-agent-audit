@@ -113,6 +113,10 @@ pytest
 - dev.to/@slabb: ["A trojanized Claude Code extension plants an SSH backdoor: the 7-point audit for your machine"](https://dev.to/slabb/a-trojanized-claude-code-extension-plants-an-ssh-backdoor-the-7-point-audit-for-your-machine-23cj)
 - Phorion: ["Official Claude Code Extension Compromise: Security Advisory"](https://phorion.io/blog/offical-claude-code-vsx-compromise/) — confirms the same backdoor reached the Cursor Marketplace and documents the Windows/Linux persistence mechanisms added in v0.2.0 of this tool.
 
+## Need this for your team?
+
+Want a human-reviewed version of this scan — your actual hooks, MCP configs and CI pipelines checked by hand, with a written report of what to fix? [Paid audit, from €149](https://stackscribe-ai.github.io/services/).
+
 ## Support
 
 This tool is free and MIT-licensed, no strings attached. If it caught
