@@ -146,6 +146,24 @@ Full request/response shape: `GET /openapi.json` on that URL, or the
 [source](https://github.com/stackscribe-ai/coding-agent-audit) of the x402
 worker. The free CLI above remains the full, unpaid alternative.
 
+## GitHub Action (CI gate for your repo's own config)
+
+If your repo commits `.claude/settings.json` or `.mcp.json`, there's a
+[GitHub Action](https://github.com/stackscribe-ai/coding-agent-audit-action)
+that runs the config-heuristics scan on every pull request:
+
+```yaml
+- uses: stackscribe-ai/coding-agent-audit-action@v1
+  with:
+    path: .
+```
+
+Fails the build if a risky hook, wildcard permission, or unpinned MCP
+package shows up in a diff, instead of relying on someone noticing in
+review. Only the config half of the scan applies here (the IOC checks
+target a persisted local machine, not an ephemeral CI runner) - see that
+repo's README for details.
+
 ## Instant client-ready report (for humans, no install)
 
 If you want a shareable report rather than terminal output — to attach to a
