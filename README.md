@@ -112,14 +112,15 @@ any MCP client. Add this to your client's MCP config (e.g. Claude Desktop's
   "mcpServers": {
     "coding-agent-audit": {
       "command": "uvx",
-      "args": ["--from", "coding-agent-audit", "agent-audit-mcp"]
+      "args": ["coding-agent-audit"]
     }
   }
 }
 ```
 
 (No `uv`? `pip install coding-agent-audit` then use `"command": "agent-audit-mcp"`
-with no `args`.) This exposes two tools, `scan_for_known_backdoors` and
+with no `args` — same server, explicit entry-point name.) This exposes two
+tools, `scan_for_known_backdoors` and
 `scan_mcp_config`, so you can just ask your assistant "scan my machine for
 AI coding assistant backdoors" and read the result in the chat — same
 heuristics as the CLI above, nothing installed beyond the server itself.
