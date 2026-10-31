@@ -99,6 +99,29 @@ none of the *currently known, documented* patterns matched. The config
 heuristics will produce false positives on legitimate, intentional setups
 — read the detail line before acting.
 
+## MCP server (run it from inside Claude Desktop / Claude Code)
+
+Instead of a terminal, you can run both scans as MCP tools directly inside
+any MCP client. Add this to your client's MCP config (e.g. Claude Desktop's
+`claude_desktop_config.json`, or via `claude mcp add`):
+
+```json
+{
+  "mcpServers": {
+    "coding-agent-audit": {
+      "command": "uvx",
+      "args": ["--from", "coding-agent-audit", "agent-audit-mcp"]
+    }
+  }
+}
+```
+
+(No `uv`? `pip install coding-agent-audit` then use `"command": "agent-audit-mcp"`
+with no `args`.) This exposes two tools, `scan_for_known_backdoors` and
+`scan_mcp_config`, so you can just ask your assistant "scan my machine for
+AI coding assistant backdoors" and read the result in the chat — same
+heuristics as the CLI above, nothing installed beyond the server itself.
+
 ## Pay-per-call API (for other AI agents / CI systems)
 
 The config heuristics (`scan_config_dict`) are also available as an [x402](https://www.x402.org/)
