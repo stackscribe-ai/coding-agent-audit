@@ -12,6 +12,13 @@ from .findings import Finding, worst_severity
 
 _SEVERITY_ICON = {"critical": "[CRITICAL]", "warning": "[WARNING]", "info": "[INFO]"}
 
+FOOTER = (
+    "\nWant a shareable, client-ready HTML/Markdown report instead of this terminal "
+    "output (or a human to review it by hand)? -> "
+    "https://stackscribe-config-report.stackscribe-paywall-worker.workers.dev/ "
+    "(instant, 12 USDC) or https://stackscribe-ai.github.io/services/ (human audit, from EUR149)"
+)
+
 
 def _print_human(findings: list[Finding]) -> None:
     if not findings:
@@ -54,6 +61,9 @@ def build_parser() -> argparse.ArgumentParser:
         help="skip the risky-config heuristic scan (IOC-only)",
     )
     parser.add_argument("--json", action="store_true", help="output JSON instead of text")
+    parser.add_argument(
+        "--no-footer", action="store_true", help="suppress the closing promo line"
+    )
     parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     return parser
 
@@ -74,6 +84,8 @@ def main(argv: list[str] | None = None) -> int:
         print(json.dumps([f.to_dict() for f in findings], indent=2))
     else:
         _print_human(findings)
+        if findings and not args.no_footer:
+            print(FOOTER)
 
     worst = worst_severity(findings)
     if worst == "critical":
