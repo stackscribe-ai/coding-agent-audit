@@ -18,11 +18,13 @@ A small, open-source CLI that scans your machine for:
 ## Why this exists
 
 In October 2026, a trojanized build of the Claude Code extension
-(`anthropic.claude-code@2.1.313`) was published on Open-VSX. Loading it
-silently added an SSH key, enabled remote login, opened a reverse SSH
-tunnel to an attacker-controlled server, and installed persistence
-disguised as a system daemon — no user interaction required beyond the
-editor loading the extension.
+(`anthropic.claude-code@2.1.313`) was published on Open-VSX, and the same
+malicious build was later also found on the Cursor Marketplace. Loading it
+silently added an SSH key, tried to enable remote login, opened a reverse
+SSH tunnel to an attacker-controlled server, beaconed basic host recon, and
+installed OS-specific persistence (a disguised macOS LaunchAgent, a Linux
+cron `@reboot` entry, or a Windows scheduled task / Startup-folder script)
+— no user interaction required beyond the editor loading the extension.
 
 This tool is an **independent re-implementation**, from scratch, of the
 publicly documented indicators from that incident (file paths, a known
@@ -62,17 +64,19 @@ one critical (confirmed-IOC-pattern) finding.
 
 ### What it checks
 
-**IOC scan** (`checks.py`) — all tied to the October 2026 Open-VSX Claude
-Code trojan:
+**IOC scan** (`checks.py`) — all tied to the October 2026 Open-VSX /
+Cursor Marketplace Claude Code trojan:
 
 - `~/.ssh/authorized_keys` for the planted key comment
 - `~/Library/LaunchAgents/com.apple.sysmond.plist` (macOS persistence)
-- Marker files under `~/.config`
+- Marker files under `~/.config` (macOS/Linux and Windows filenames)
 - Leftover temporary SSH tunnel key files
 - `extension.js` files under common VS Code / Cursor / Windsurf extension
   directories, hash-compared against the known-malicious build
 - Running processes / crontab for references to the known C2 host or
   persistence task name
+- On Windows: the known SYSTEM scheduled task name, and the Startup-folder
+  script dropped as a fallback when that task can't be created
 
 **Config heuristics** (`configscan.py`) — pattern-based, always worth a
 second look rather than proof of compromise:
@@ -107,6 +111,7 @@ pytest
 
 - doublepulsar.com: ["Anthropic hacked to deliver remote access trojan to Claude developer laptops worldwide"](https://doublepulsar.com/anthropic-hacked-to-deliver-remote-access-trojan-to-claude-developer-laptops-worldwide-1148a92baae2)
 - dev.to/@slabb: ["A trojanized Claude Code extension plants an SSH backdoor: the 7-point audit for your machine"](https://dev.to/slabb/a-trojanized-claude-code-extension-plants-an-ssh-backdoor-the-7-point-audit-for-your-machine-23cj)
+- Phorion: ["Official Claude Code Extension Compromise: Security Advisory"](https://phorion.io/blog/offical-claude-code-vsx-compromise/) — confirms the same backdoor reached the Cursor Marketplace and documents the Windows/Linux persistence mechanisms added in v0.2.0 of this tool.
 
 ## Support
 

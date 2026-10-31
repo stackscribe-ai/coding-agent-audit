@@ -9,6 +9,8 @@ from agentaudit.checks import (
     check_marker_files,
     check_ssh_authorized_keys,
     check_tmp_tunnel_keys,
+    check_windows_scheduled_task,
+    check_windows_startup_folder,
     default_extension_scan_dirs,
 )
 from agentaudit.iocs import INCIDENTS
@@ -153,3 +155,43 @@ def test_cron_persistence_marker_without_reboot():
     marker = _IOC["linux_cron_marker"]
     text = f"0 3 * * * /usr/local/bin/{marker} --daemon\n"
     assert check_linux_cron_persistence(text) == []
+
+
+def test_windows_scheduled_task_clean():
+    output = (
+        "ERROR: The system cannot find the file specified.\n"
+    )
+    assert check_windows_scheduled_task(output) == []
+
+
+def test_windows_scheduled_task_found():
+    task_name = _IOC["windows_task_name"]
+    output = f"TaskName: \\{task_name}\nStatus: Ready\n"
+    findings = check_windows_scheduled_task(output)
+    assert len(findings) == 1
+    assert findings[0].severity == "critical"
+    assert findings[0].check_id == "windows-scheduled-task"
+
+
+def test_windows_startup_folder_absent(tmp_path: Path):
+    assert check_windows_startup_folder(tmp_path) == []
+
+
+def test_windows_startup_folder_present(tmp_path: Path):
+    relpath = _IOC["windows_startup_relpath"]
+    target = tmp_path / relpath
+    target.parent.mkdir(parents=True)
+    target.write_text("@echo off\n")
+    findings = check_windows_startup_folder(tmp_path)
+    assert len(findings) == 1
+    assert findings[0].severity == "critical"
+    assert findings[0].check_id == "windows-startup-folder"
+
+
+def test_marker_files_includes_windows_variant(tmp_path: Path):
+    config_dir = tmp_path / ".config"
+    config_dir.mkdir()
+    assert "smtk" in _IOC["marker_filenames"]
+    (config_dir / "smtk").write_text("x")
+    findings = check_marker_files(tmp_path)
+    assert len(findings) == 1

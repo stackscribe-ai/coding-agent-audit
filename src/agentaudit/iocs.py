@@ -16,17 +16,20 @@ from __future__ import annotations
 
 INCIDENTS = {
     "openvsx-claude-code-2026-10": {
-        "name": "Trojanized Claude Code extension on Open-VSX (Oct 2026)",
+        "name": "Trojanized Claude Code extension on Open-VSX / Cursor Marketplace (Oct 2026)",
         "description": (
-            "anthropic.claude-code@2.1.313 published on Open-VSX had a "
-            "66-line malicious loader prepended to extension.js. It added "
-            "an SSH key, enabled remote login, opened a reverse SSH tunnel "
-            "to a C2 server, and installed persistence disguised as a "
-            "system daemon."
+            "anthropic.claude-code@2.1.313, distributed via both Open-VSX "
+            "and the Cursor Marketplace, had a malicious loader prepended "
+            "to extension.js. It added an SSH key, tried to enable remote "
+            "login, opened a reverse SSH tunnel to a C2 server, beaconed "
+            "basic host recon, and installed OS-specific persistence "
+            "(macOS LaunchAgent, Linux cron @reboot entry, Windows "
+            "scheduled task / Startup-folder script)."
         ),
         "references": [
             "https://doublepulsar.com/anthropic-hacked-to-deliver-remote-access-trojan-to-claude-developer-laptops-worldwide-1148a92baae2",
             "https://dev.to/slabb/a-trojanized-claude-code-extension-plants-an-ssh-backdoor-the-7-point-audit-for-your-machine-23cj",
+            "https://phorion.io/blog/offical-claude-code-vsx-compromise/",
         ],
         # SSH public key comment appended to ~/.ssh/authorized_keys
         "ssh_key_comment": "svc-telemetry",
@@ -38,9 +41,14 @@ INCIDENTS = {
         "c2_ports": [22, 8099],
         # Marker / persistence file names observed on infected hosts
         "macos_launch_agent": "com.apple.sysmond.plist",
-        "marker_filenames": [".smt", ".smtk", "smt.cmd"],
+        "marker_filenames": [".smt", ".smtk", "smt.cmd", "smtk"],
         "tmp_tunnel_glob": ".stk_*",
         "linux_cron_marker": "SysMon",
         "windows_task_name": "SysMon",
+        # Startup-folder fallback used on Windows when creating the SYSTEM
+        # scheduled task fails (relative to %APPDATA%)
+        "windows_startup_relpath": (
+            "Microsoft/Windows/Start Menu/Programs/Startup/sysmon.cmd"
+        ),
     }
 }

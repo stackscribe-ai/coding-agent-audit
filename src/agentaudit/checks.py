@@ -202,6 +202,66 @@ def check_linux_cron_persistence(crontab_text: str) -> list[Finding]:
     return []
 
 
+def check_windows_scheduled_task(schtasks_output: str) -> list[Finding]:
+    """Flag a `schtasks /query` output that reports the known SYSTEM
+    persistence task."""
+    task_name = _IOC["windows_task_name"]
+    if task_name in schtasks_output and "ERROR" not in schtasks_output.upper():
+        return [
+            Finding(
+                check_id="windows-scheduled-task",
+                severity="critical",
+                title="Known backdoor scheduled task found",
+                detail=(
+                    f"A scheduled task named '{task_name}' exists, matching "
+                    f"the SYSTEM-level persistence task created by the "
+                    f"{_IOC['name']}."
+                ),
+                references=_IOC["references"],
+            )
+        ]
+    return []
+
+
+def check_windows_startup_folder(appdata: Path) -> list[Finding]:
+    """Flag the Startup-folder fallback script used on Windows when the
+    SYSTEM scheduled task cannot be created (non-admin user)."""
+    path = appdata / _IOC["windows_startup_relpath"]
+    if path.exists():
+        return [
+            Finding(
+                check_id="windows-startup-folder",
+                severity="critical",
+                title="Known backdoor Startup-folder script found",
+                detail=(
+                    f"'{path}' exists and matches the Startup-folder "
+                    f"fallback script dropped by the {_IOC['name']} when it "
+                    f"can't create a SYSTEM scheduled task."
+                ),
+                path=str(path),
+                references=_IOC["references"],
+            )
+        ]
+    return []
+
+
+def live_windows_scheduled_task_text() -> str:
+    """Best-effort `schtasks /query` for the known task name; empty string
+    if unavailable (not Windows, task not found, etc.)."""
+    try:
+        result = subprocess.run(
+            ["schtasks", "/query", "/tn", _IOC["windows_task_name"], "/fo", "list"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return ""
+    if result.returncode != 0:
+        return ""
+    return result.stdout
+
+
 def live_crontab_text() -> str:
     """Best-effort read of the current user's crontab; empty string if
     unavailable (no cron, not installed, permission denied, etc.)."""
@@ -244,4 +304,8 @@ def run_all_ioc_checks(home: Optional[Path] = None) -> list[Finding]:
     findings += check_linux_cron_persistence(live_crontab_text())
     if platform.system() == "Darwin":
         findings += check_macos_launch_agent(home)
+    if platform.system() == "Windows":
+        appdata = Path(os.environ.get("APPDATA", home / "AppData" / "Roaming"))
+        findings += check_windows_startup_folder(appdata)
+        findings += check_windows_scheduled_task(live_windows_scheduled_task_text())
     return findings
