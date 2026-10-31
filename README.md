@@ -1,5 +1,7 @@
 # coding-agent-audit
 
+<!-- mcp-name: io.github.stackscribe-ai/coding-agent-audit -->
+
 A small, open-source CLI that scans your machine for:
 
 1. **Known indicators of compromise (IOCs)** from publicly documented
