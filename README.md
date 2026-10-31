@@ -120,6 +120,17 @@ Full request/response shape: `GET /openapi.json` on that URL, or the
 [source](https://github.com/stackscribe-ai/coding-agent-audit) of the x402
 worker. The free CLI above remains the full, unpaid alternative.
 
+## Instant client-ready report (for humans, no install)
+
+If you want a shareable report rather than terminal output — to attach to a
+security questionnaire, hand to a client, or just read without installing
+Python — paste your config at
+[stackscribe-config-report.stackscribe-paywall-worker.workers.dev](https://stackscribe-config-report.stackscribe-paywall-worker.workers.dev/)
+and pay 12 USDC / 24 POL on Polygon (no account, no KYC). Same heuristics as
+`agentaudit.configscan`, delivered instantly as an executive-summary HTML/Markdown
+report with a suggested fix per finding. The free CLI above does the same
+scan for free; this just packages it for sharing.
+
 ## Found something (or nothing) worth knowing?
 
 Either result is useful to us: a star on the repo
