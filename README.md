@@ -99,6 +99,27 @@ none of the *currently known, documented* patterns matched. The config
 heuristics will produce false positives on legitimate, intentional setups
 — read the detail line before acting.
 
+## Pay-per-call API (for other AI agents / CI systems)
+
+The config heuristics (`scan_config_dict`) are also available as an [x402](https://www.x402.org/)
+pay-per-call HTTP API, for agents/pipelines that want to check a config
+programmatically without installing anything:
+
+```
+POST https://stackscribe-audit-x402.stackscribe-paywall-worker.workers.dev/audit
+Content-Type: application/json
+{"config": {<your Claude Code / MCP config JSON>}}
+```
+
+No `X-PAYMENT` header → `402` with the x402 v2 price (0.02 USDC on Polygon,
+scheme `exact`). No account, API key or KYC on either side; settlement runs
+through the public [PayAI facilitator](https://facilitator.payai.network).
+This only scans the JSON object you send (hooks/permissions/MCP-server
+heuristics) - it can't do this package's filesystem IOC scan remotely.
+Full request/response shape: `GET /openapi.json` on that URL, or the
+[source](https://github.com/stackscribe-ai/coding-agent-audit) of the x402
+worker. The free CLI above remains the full, unpaid alternative.
+
 ## Found something (or nothing) worth knowing?
 
 Either result is useful to us: a star on the repo
