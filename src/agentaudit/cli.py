@@ -9,6 +9,7 @@ from . import __version__
 from .checks import run_all_ioc_checks
 from .configscan import default_config_paths, scan_paths
 from .findings import Finding, worst_severity
+from .phantomdeps import check_phantom_dependencies
 
 _SEVERITY_ICON = {"critical": "[CRITICAL]", "warning": "[WARNING]", "info": "[INFO]"}
 
@@ -60,6 +61,16 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="skip the risky-config heuristic scan (IOC-only)",
     )
+    parser.add_argument(
+        "--check-deps",
+        action="store_true",
+        help=(
+            "with --project, also check package.json/requirements.txt/"
+            "pyproject.toml dependencies against npm/PyPI and flag any "
+            "that don't exist (possible AI-hallucinated/slopsquattable "
+            "package name). Makes read-only network requests."
+        ),
+    )
     parser.add_argument("--json", action="store_true", help="output JSON instead of text")
     parser.add_argument(
         "--no-footer", action="store_true", help="suppress the closing promo line"
@@ -79,6 +90,9 @@ def main(argv: list[str] | None = None) -> int:
         home = Path.home()
         paths = default_config_paths(home, args.project)
         findings += scan_paths(paths)
+
+    if args.check_deps and args.project is not None:
+        findings += check_phantom_dependencies(args.project)
 
     if args.json:
         print(json.dumps([f.to_dict() for f in findings], indent=2))

@@ -19,6 +19,7 @@ from . import __version__
 from .checks import run_all_ioc_checks
 from .configscan import default_config_paths, scan_paths
 from .findings import Finding, worst_severity
+from .phantomdeps import check_phantom_dependencies
 
 server = MCPServer(
     name="coding-agent-audit",
@@ -77,6 +78,23 @@ def scan_mcp_config(project_dir: Optional[str] = None) -> str:
     project = Path(project_dir) if project_dir else None
     paths = default_config_paths(home, project)
     return _render(scan_paths(paths))
+
+
+@server.tool()
+def scan_phantom_dependencies(project_dir: str) -> str:
+    """Check a project's package.json / requirements.txt / pyproject.toml
+    dependencies against the npm/PyPI registries and flag any package name
+    that doesn't actually exist there. AI coding assistants occasionally
+    hallucinate a plausible-but-nonexistent package name; if one ends up in
+    a manifest, an attacker can register that exact name with malicious
+    code and have it silently installed on the next install
+    ("slopsquatting"). Read-only HTTP lookups only; nothing is installed.
+
+    Args:
+        project_dir: path to the project directory containing the manifest
+            file(s) to check.
+    """
+    return _render(check_phantom_dependencies(Path(project_dir)))
 
 
 def main() -> None:

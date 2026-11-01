@@ -59,6 +59,10 @@ agent-audit --json
 # only one half of the scan
 agent-audit --skip-config   # IOC-only
 agent-audit --skip-ioc      # config-heuristics only
+
+# also check package.json/requirements.txt/pyproject.toml deps against
+# npm/PyPI and flag any that don't exist (hallucinated/slopsquattable name)
+agent-audit --project /path/to/repo --check-deps
 ```
 
 Exit codes: `0` nothing found, `1` only warning/info findings, `2` at least
@@ -89,6 +93,17 @@ second look rather than proof of compromise:
   no version pin)
 - Auto-approved permission rules that are unscoped wildcards (e.g.
   `Bash(*)`)
+
+**Phantom-dependency scan** (`phantomdeps.py`, opt-in via `--check-deps`) —
+reads `package.json` / `requirements.txt` / `pyproject.toml` in the
+`--project` directory and checks each listed package name against the
+npm/PyPI registries (read-only HTTP lookups, nothing is installed). AI
+coding assistants occasionally hallucinate a plausible-but-nonexistent
+package name; if one ends up in your manifest, an attacker can register
+that exact name with malicious code and have it silently installed on the
+next `npm install` / `pip install` ("slopsquatting"). Network errors are
+treated as inconclusive, not as a finding, so a flaky connection can't
+produce a false positive.
 
 New incidents can be added to `iocs.py` as data, without touching the
 check logic.
