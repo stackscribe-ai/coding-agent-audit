@@ -193,11 +193,12 @@ scan for free; this just packages it for sharing.
 ## As an agent skill
 
 If your agent runtime supports the open `SKILL.md` standard (Claude Code,
-Cursor, and others), a packaged version of this scan is listed on the
-[Agensi skill marketplace](https://www.agensi.io/skills) under "coding agent
-security audit" (free) — source in [`agensi-skill/`](agensi-skill/). It's a
-zero-dependency, single-file port of the same checks below, meant to be
-loaded by an agent directly rather than installed via pip.
+Cursor, and others), a packaged version of this scan is live on the
+[Agensi skill marketplace](https://www.agensi.io/skills/coding-agent-security-audit)
+as "coding agent security audit" (free) — source in
+[`agensi-skill/`](agensi-skill/). It's a zero-dependency, single-file port of
+the same checks below, meant to be loaded by an agent directly rather than
+installed via pip.
 
 ## Found something (or nothing) worth knowing?
 
