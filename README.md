@@ -190,6 +190,15 @@ and pay 12 USDC / 24 POL on Polygon (no account, no KYC). Same heuristics as
 report with a suggested fix per finding. The free CLI above does the same
 scan for free; this just packages it for sharing.
 
+## As an agent skill
+
+If your agent runtime supports the open `SKILL.md` standard (Claude Code,
+Cursor, and others), a packaged version of this scan is listed on the
+[Agensi skill marketplace](https://www.agensi.io/skills) under "coding agent
+security audit" (free) — source in [`agensi-skill/`](agensi-skill/). It's a
+zero-dependency, single-file port of the same checks below, meant to be
+loaded by an agent directly rather than installed via pip.
+
 ## Found something (or nothing) worth knowing?
 
 Either result is useful to us: a star on the repo
