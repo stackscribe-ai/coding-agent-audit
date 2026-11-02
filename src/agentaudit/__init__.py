@@ -3,4 +3,4 @@ for AI coding assistants (Claude Code, Cursor, Windsurf, VS Code forks, MCP
 servers).
 """
 
-__version__ = "0.5.0"
+__version__ = "0.6.0"

@@ -83,6 +83,12 @@ Cursor Marketplace Claude Code trojan:
   persistence task name
 - On Windows: the known SYSTEM scheduled task name, and the Startup-folder
   script dropped as a fallback when that task can't be created
+- A GitHub Copilot VS Code extension older than 1.1.29 (the version that
+  fixed the address-bar-spoofing half of **EMBRACE**, Forever Security's
+  Oct 2026 disclosure of embedded-browser flaws in Cursor, Copilot, Codex,
+  VS Code and Claude Desktop), plus a presence check that flags Codex/VS
+  Code (still unpatched at disclosure time) or Claude Desktop (patch status
+  unconfirmed) if installed, with mitigation guidance
 
 **Config heuristics** (`configscan.py`) — pattern-based, always worth a
 second look rather than proof of compromise:
@@ -226,6 +232,7 @@ pytest
 - doublepulsar.com: ["Anthropic hacked to deliver remote access trojan to Claude developer laptops worldwide"](https://doublepulsar.com/anthropic-hacked-to-deliver-remote-access-trojan-to-claude-developer-laptops-worldwide-1148a92baae2)
 - dev.to/@slabb: ["A trojanized Claude Code extension plants an SSH backdoor: the 7-point audit for your machine"](https://dev.to/slabb/a-trojanized-claude-code-extension-plants-an-ssh-backdoor-the-7-point-audit-for-your-machine-23cj)
 - Phorion: ["Official Claude Code Extension Compromise: Security Advisory"](https://phorion.io/blog/offical-claude-code-vsx-compromise/) — confirms the same backdoor reached the Cursor Marketplace and documents the Windows/Linux persistence mechanisms added in v0.2.0 of this tool.
+- Help Net Security: ["Researchers broke the browsers built into VS Code, Cursor, Copilot, Codex and Claude Desktop"](https://www.helpnetsecurity.com/2026/10/29/research-ai-assistant-browser-vulnerabilities/) and The Register: ["Researchers find bugs in 5 AI developer tools, with OpenAI and Microsoft flaws still unpatched"](https://www.theregister.com/security/2026/10/29/researchers_find_bugs_in_5_ai_developer_tools_with_openai_and_microsoft_flaws_still_unpatched/5306508) — Forever Security's EMBRACE disclosure, added in v0.6.0 of this tool.
 
 ## Need this for your team?
 

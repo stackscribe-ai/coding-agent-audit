@@ -50,5 +50,30 @@ INCIDENTS = {
         "windows_startup_relpath": (
             "Microsoft/Windows/Start Menu/Programs/Startup/sysmon.cmd"
         ),
-    }
+    },
+    "embrace-embedded-browser-2026-10": {
+        "name": "EMBRACE embedded-browser flaws in AI coding assistants (Forever Security, Oct 2026)",
+        "description": (
+            "Forever Security's EMBRACE research (published 2026-10-29) found "
+            "that five AI coding tools grant their embedded preview/agent "
+            "browser the same filesystem trust as the IDE itself: code "
+            "execution in Cursor, address-bar spoofing in GitHub Copilot, "
+            "and arbitrary local-file read (SSH keys, .env files, npm "
+            "tokens) in OpenAI Codex, VS Code and Claude Desktop, triggered "
+            "by a single HTML page opened in the tool's internal browser. "
+            "Cursor was fixed 2026-10-01 and GitHub Copilot in extension "
+            "version 1.1.29 (2026-10-13); Codex and VS Code were still "
+            "unpatched as of 2026-11-02, and Claude Desktop's status was "
+            "not confirmed by the researchers."
+        ),
+        "references": [
+            "https://www.helpnetsecurity.com/2026/10/29/research-ai-assistant-browser-vulnerabilities/",
+            "https://www.theregister.com/security/2026/10/29/researchers_find_bugs_in_5_ai_developer_tools_with_openai_and_microsoft_flaws_still_unpatched/5306508",
+            "https://hackread.com/embrace-flaws-ai-coding-tools-code-execution-theft/",
+        ],
+        # GitHub Copilot extension version that ships the address-bar-spoofing fix.
+        "copilot_patched_version": (1, 1, 29),
+        # As of the references above; re-check before treating as current.
+        "unpatched_products": ["OpenAI Codex", "VS Code"],
+    },
 }

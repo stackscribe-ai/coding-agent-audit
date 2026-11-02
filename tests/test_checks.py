@@ -3,6 +3,8 @@ from pathlib import Path
 
 from agentaudit.checks import (
     check_c2_network_indicators,
+    check_embrace_copilot_version,
+    check_embrace_unpatched_tools,
     check_extension_hashes,
     check_linux_cron_persistence,
     check_macos_launch_agent,
@@ -16,6 +18,7 @@ from agentaudit.checks import (
 from agentaudit.iocs import INCIDENTS
 
 _IOC = INCIDENTS["openvsx-claude-code-2026-10"]
+_EMBRACE = INCIDENTS["embrace-embedded-browser-2026-10"]
 
 
 def test_ssh_authorized_keys_clean(tmp_path: Path):
@@ -195,3 +198,50 @@ def test_marker_files_includes_windows_variant(tmp_path: Path):
     (config_dir / "smtk").write_text("x")
     findings = check_marker_files(tmp_path)
     assert len(findings) == 1
+
+
+def test_embrace_copilot_version_clean_when_patched(tmp_path: Path):
+    ext_dir = tmp_path / ".vscode" / "extensions" / "github.copilot-1.1.29"
+    ext_dir.mkdir(parents=True)
+    findings = check_embrace_copilot_version([tmp_path / ".vscode" / "extensions"])
+    assert findings == []
+
+
+def test_embrace_copilot_version_flags_old_version(tmp_path: Path):
+    ext_dir = tmp_path / ".vscode" / "extensions" / "github.copilot-1.1.27"
+    ext_dir.mkdir(parents=True)
+    findings = check_embrace_copilot_version([tmp_path / ".vscode" / "extensions"])
+    assert len(findings) == 1
+    assert findings[0].severity == "warning"
+    assert findings[0].check_id == "embrace-copilot-version"
+
+
+def test_embrace_copilot_version_ignores_copilot_chat(tmp_path: Path):
+    ext_dir = tmp_path / ".vscode" / "extensions" / "github.copilot-chat-0.9.0"
+    ext_dir.mkdir(parents=True)
+    findings = check_embrace_copilot_version([tmp_path / ".vscode" / "extensions"])
+    assert findings == []
+
+
+def test_embrace_copilot_version_nonexistent_dir(tmp_path: Path):
+    assert check_embrace_copilot_version([tmp_path / "nope"]) == []
+
+
+def test_embrace_unpatched_tools_none_detected(tmp_path: Path):
+    assert check_embrace_unpatched_tools(tmp_path) == []
+
+
+def test_embrace_unpatched_tools_vscode_is_warning(tmp_path: Path):
+    (tmp_path / ".vscode").mkdir()
+    findings = check_embrace_unpatched_tools(tmp_path)
+    assert len(findings) == 1
+    assert findings[0].severity == "warning"
+    assert "VS Code" in findings[0].detail
+
+
+def test_embrace_unpatched_tools_claude_desktop_only_is_info(tmp_path: Path):
+    (tmp_path / ".config" / "Claude").mkdir(parents=True)
+    findings = check_embrace_unpatched_tools(tmp_path)
+    assert len(findings) == 1
+    assert findings[0].severity == "info"
+    assert "Claude Desktop" in findings[0].detail
