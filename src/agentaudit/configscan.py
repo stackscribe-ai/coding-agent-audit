@@ -157,11 +157,75 @@ def scan_permissions(config: dict, source_path: str) -> list[Finding]:
     return findings
 
 
+# Tools that pull in content the agent did not ask for and cannot fully
+# trust (web pages, search results, scraped/rendered pages).
+_FETCH_CAPABLE_TOOLS = (
+    "webfetch", "websearch", "fetch", "browser", "puppeteer", "playwright",
+    "crawl", "scrape",
+)
+# Tools capable of taking an irreversible or exfiltrating action once the
+# agent decides (correctly or not, after reading untrusted content) to call
+# them: running shell commands, writing files, or talking to the network.
+_ACTION_CAPABLE_TOOLS = (
+    "bash", "write", "edit", "shell", "exec", "curl", "http",
+)
+
+
+def _allow_rule_tool_name(rule: str) -> str:
+    return rule.split("(", 1)[0].strip().lower()
+
+
+def scan_lethal_trifecta(config: dict, source_path: str) -> list[Finding]:
+    """Flag configs that auto-approve both an untrusted-content-fetching
+    tool and an action-capable tool in the same `permissions.allow` list.
+
+    This is the "lethal trifecta" pattern (private/sensitive access +
+    exposure to untrusted content + an exfiltration path) that turns a
+    prompt-injection payload hidden in a fetched page, search result or
+    MCP tool response into actual data loss or remote code execution,
+    without ever showing the user a confirmation prompt.
+    """
+    permissions = config.get("permissions")
+    if not isinstance(permissions, dict):
+        return []
+    allow = permissions.get("allow") or []
+    tool_names = {_allow_rule_tool_name(r) for r in allow if isinstance(r, str)}
+    tool_names |= {
+        name
+        for server_name in (config.get("mcpServers") or config.get("mcp_servers") or {})
+        for name in (str(server_name).lower(),)
+    }
+
+    fetch_hits = [t for t in tool_names if any(k in t for k in _FETCH_CAPABLE_TOOLS)]
+    action_hits = [t for t in tool_names if any(k in t for k in _ACTION_CAPABLE_TOOLS)]
+    if not fetch_hits or not action_hits:
+        return []
+
+    return [
+        Finding(
+            check_id="lethal-trifecta-permissions",
+            severity="warning",
+            title="Auto-approved tools combine untrusted-content fetch with an action path",
+            detail=(
+                f"Permissions auto-approve both a content-fetching tool "
+                f"({', '.join(sorted(fetch_hits))}) and an action-capable "
+                f"tool ({', '.join(sorted(action_hits))}) with no "
+                f"confirmation step in between. A prompt-injection payload "
+                f"hidden in a fetched page, search result or tool response "
+                f"can chain these two to exfiltrate data or run commands "
+                f"without the user ever seeing a prompt."
+            ),
+            path=source_path,
+        )
+    ]
+
+
 def scan_config_dict(config: dict, source_path: str) -> list[Finding]:
     findings: list[Finding] = []
     findings += scan_hooks(config, source_path)
     findings += scan_mcp_servers(config, source_path)
     findings += scan_permissions(config, source_path)
+    findings += scan_lethal_trifecta(config, source_path)
     return findings
 
 

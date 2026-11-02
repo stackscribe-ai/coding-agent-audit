@@ -93,6 +93,12 @@ second look rather than proof of compromise:
   no version pin)
 - Auto-approved permission rules that are unscoped wildcards (e.g.
   `Bash(*)`)
+- The "lethal trifecta" pattern: an untrusted-content-fetching tool
+  (WebFetch/WebSearch/browser/MCP scraper) auto-approved alongside an
+  action-capable tool (Bash/Write/Edit/shell) in the same config, with no
+  confirmation step between them — the combination that turns a
+  prompt-injection payload in a fetched page or tool response into real
+  data exfiltration or command execution
 
 **Phantom-dependency scan** (`phantomdeps.py`, opt-in via `--check-deps`) —
 reads `package.json` / `requirements.txt` / `pyproject.toml` in the

@@ -4,6 +4,7 @@ from agentaudit.configscan import (
     default_config_paths,
     scan_config_dict,
     scan_hooks,
+    scan_lethal_trifecta,
     scan_mcp_servers,
     scan_paths,
     scan_permissions,
@@ -109,6 +110,37 @@ def test_scan_permissions_wildcard_flagged():
 def test_scan_permissions_bare_star_flagged():
     config = {"permissions": {"allow": ["*"]}}
     findings = scan_permissions(config, "src")
+    assert len(findings) == 1
+
+
+def test_scan_lethal_trifecta_no_permissions():
+    assert scan_lethal_trifecta({}, "src") == []
+
+
+def test_scan_lethal_trifecta_fetch_only_ok():
+    config = {"permissions": {"allow": ["WebFetch(*)"]}}
+    assert scan_lethal_trifecta(config, "src") == []
+
+
+def test_scan_lethal_trifecta_action_only_ok():
+    config = {"permissions": {"allow": ["Bash(git diff:*)"]}}
+    assert scan_lethal_trifecta(config, "src") == []
+
+
+def test_scan_lethal_trifecta_fetch_plus_bash_flagged():
+    config = {"permissions": {"allow": ["WebFetch(*)", "Bash(*)"]}}
+    findings = scan_lethal_trifecta(config, "src")
+    assert len(findings) == 1
+    assert findings[0].check_id == "lethal-trifecta-permissions"
+    assert findings[0].severity == "warning"
+
+
+def test_scan_lethal_trifecta_via_mcp_server_name():
+    config = {
+        "permissions": {"allow": ["Bash(npm test:*)"]},
+        "mcpServers": {"playwright-browser": {"command": "npx", "args": ["@pkg@1.0.0"]}},
+    }
+    findings = scan_lethal_trifecta(config, "src")
     assert len(findings) == 1
 
 
