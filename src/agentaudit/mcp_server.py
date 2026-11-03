@@ -18,7 +18,7 @@ from mcp.types import ToolAnnotations
 
 from . import __version__
 from .checks import run_all_ioc_checks
-from .configscan import default_config_paths, scan_paths
+from .configscan import default_config_paths, scan_paths, scan_paths_for_phantom_mcp_packages
 from .findings import Finding, worst_severity
 from .phantomdeps import check_phantom_dependencies
 
@@ -111,6 +111,30 @@ def scan_phantom_dependencies(project_dir: str) -> str:
             file(s) to check.
     """
     return _render(check_phantom_dependencies(Path(project_dir)))
+
+
+@server.tool(annotations=_NETWORK_READ_ONLY)
+def scan_mcp_phantom_packages(project_dir: Optional[str] = None) -> str:
+    """Check the `npx`/`uvx`/`pipx run` commands in this machine's (and
+    optionally a project's) MCP server config against the npm/PyPI
+    registries, and flag any package name that doesn't actually exist
+    there - the "MCPhantom" pattern (Glow Labs, Nov 2026): a coding agent
+    fills in a plausible-sounding MCP server name from training data, or
+    copies one from a long-archived tutorial whose package was since
+    renamed or unpublished. An attacker can register that exact name and
+    have it run as the MCP server, with the user's own permissions, the
+    next time the config is loaded. Read-only HTTP lookups only; this
+    never connects to or executes the MCP server itself.
+
+    Args:
+        project_dir: optional path to a project whose .claude/ and
+            .mcp.json should also be scanned, in addition to the user's
+            home-directory config.
+    """
+    home = Path.home()
+    project = Path(project_dir) if project_dir else None
+    paths = default_config_paths(home, project)
+    return _render(scan_paths_for_phantom_mcp_packages(paths))
 
 
 @server.tool(annotations=_LOCAL_READ_ONLY)

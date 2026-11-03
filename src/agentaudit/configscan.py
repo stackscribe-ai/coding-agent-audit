@@ -14,6 +14,7 @@ import re
 from pathlib import Path
 from typing import Iterable
 
+from . import phantomdeps
 from .findings import Finding
 
 # Commands/strings that show up in real exfiltration or persistence attempts.
@@ -287,6 +288,83 @@ def scan_mcp_servers(config: dict, source_path: str) -> list[Finding]:
     return findings
 
 
+_MCP_RUNNER_RE = re.compile(r"\b(npx|uvx|pipx\s+run)\b", re.IGNORECASE)
+
+
+def _extract_mcp_package_spec(full_cmdline: str) -> tuple[str, str] | None:
+    """Return ``(ecosystem, package_name)`` for the package a `npx`/`uvx`/
+    `pipx run` MCP server command would fetch, or ``None`` if no such
+    runner (or no package argument after it) is found."""
+    match = _MCP_RUNNER_RE.search(full_cmdline)
+    if not match:
+        return None
+    ecosystem = "npm" if match.group(1).lower() == "npx" else "pypi"
+    for token in full_cmdline[match.end():].split():
+        if token.startswith("-"):
+            continue
+        if token.startswith("@"):
+            # scoped npm package, optionally pinned: @scope/name[@version]
+            scoped, _, _version = token[1:].partition("@")
+            return ecosystem, f"@{scoped}"
+        name, _, _version = token.partition("@")
+        name = name.split("==", 1)[0]
+        return ecosystem, name
+    return None
+
+
+def scan_mcp_phantom_packages(config: dict, source_path: str) -> list[Finding]:
+    """Flag MCP servers launched via `npx`/`uvx`/`pipx run` that point at a
+    package name which doesn't exist on the registry - the "MCPhantom"
+    pattern (Glow Labs research, Nov 2026): coding agents fill in a
+    plausible-sounding MCP server name from training data, or copy one
+    from a long-archived tutorial/repo whose package was since renamed or
+    unpublished. Either way, nothing stops an attacker from registering
+    that exact name and having it run with the user's own permissions on
+    the very next launch. Makes read-only registry lookups; network
+    errors are treated as "unknown", never as "phantom" (see phantomdeps).
+    """
+    servers = config.get("mcpServers") or config.get("mcp_servers")
+    if not isinstance(servers, dict):
+        return []
+    findings: list[Finding] = []
+    for server_name, server_cfg in servers.items():
+        if not isinstance(server_cfg, dict):
+            continue
+        command = server_cfg.get("command", "")
+        args = server_cfg.get("args") or []
+        full_cmdline = " ".join([command, *[str(a) for a in args]])
+        spec = _extract_mcp_package_spec(full_cmdline)
+        if spec is None:
+            continue
+        ecosystem, name = spec
+        if ecosystem == "npm":
+            if not phantomdeps._is_plausible_npm_name(name):
+                continue
+            exists = phantomdeps.check_npm_package_exists(name)
+        else:
+            exists = phantomdeps.check_pypi_package_exists(name)
+        if exists is not False:
+            continue
+        findings.append(
+            Finding(
+                check_id="mcp-phantom-package",
+                severity="critical",
+                title=f"MCP server '{server_name}' launches a package that doesn't exist ('{name}')",
+                detail=(
+                    f"Command '{full_cmdline}' fetches '{name}' from "
+                    f"{'npm' if ecosystem == 'npm' else 'PyPI'} on every launch, but no "
+                    f"package by that name currently exists there (the "
+                    f"'MCPhantom' pattern: a hallucinated or long-deprecated "
+                    f"MCP server name). Anyone can register it and have "
+                    f"their code run as this MCP server, with no update or "
+                    f"confirmation step in between."
+                ),
+                path=source_path,
+            )
+        )
+    return findings
+
+
 def scan_permissions(config: dict, source_path: str) -> list[Finding]:
     permissions = config.get("permissions")
     if not isinstance(permissions, dict):
@@ -428,4 +506,21 @@ def scan_paths(paths: Iterable[Path]) -> list[Finding]:
             continue
         if isinstance(config, dict):
             findings += scan_config_dict(config, str(path))
+    return findings
+
+
+def scan_paths_for_phantom_mcp_packages(paths: Iterable[Path]) -> list[Finding]:
+    """Like `scan_paths`, but only runs `scan_mcp_phantom_packages` (the
+    network-dependent check), for callers that opt in with `--check-deps`.
+    """
+    findings: list[Finding] = []
+    for path in paths:
+        if not path.is_file():
+            continue
+        try:
+            config = json.loads(path.read_text())
+        except (OSError, json.JSONDecodeError):
+            continue
+        if isinstance(config, dict):
+            findings += scan_mcp_phantom_packages(config, str(path))
     return findings

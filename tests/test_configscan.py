@@ -1,4 +1,5 @@
 from pathlib import Path
+from unittest.mock import patch
 
 from agentaudit.configscan import (
     default_config_paths,
@@ -6,8 +7,10 @@ from agentaudit.configscan import (
     scan_hooks,
     scan_known_cve_packages,
     scan_lethal_trifecta,
+    scan_mcp_phantom_packages,
     scan_mcp_servers,
     scan_paths,
+    scan_paths_for_phantom_mcp_packages,
     scan_permissions,
     scan_tool_descriptions,
 )
@@ -153,6 +156,96 @@ def test_scan_known_cve_packages_unrelated_package_ignored():
 
 def test_scan_known_cve_packages_not_a_dict():
     assert scan_known_cve_packages({"mcpServers": "nope"}, "src") == []
+
+
+def test_scan_mcp_phantom_packages_flags_nonexistent_npm():
+    config = {
+        "mcpServers": {
+            "ghost": {"command": "npx", "args": ["-y", "mcp-server-totally-made-up-9x7z"]}
+        }
+    }
+    with patch("agentaudit.phantomdeps.check_npm_package_exists", return_value=False):
+        findings = scan_mcp_phantom_packages(config, "src")
+    assert len(findings) == 1
+    assert findings[0].check_id == "mcp-phantom-package"
+    assert findings[0].severity == "critical"
+    assert "mcp-server-totally-made-up-9x7z" in findings[0].title
+
+
+def test_scan_mcp_phantom_packages_flags_nonexistent_pypi():
+    config = {
+        "mcpServers": {"ghost": {"command": "uvx", "args": ["mcp-server-ghost-xyz"]}}
+    }
+    with patch("agentaudit.phantomdeps.check_pypi_package_exists", return_value=False):
+        findings = scan_mcp_phantom_packages(config, "src")
+    assert len(findings) == 1
+    assert "mcp-server-ghost-xyz" in findings[0].title
+
+
+def test_scan_mcp_phantom_packages_real_package_not_flagged():
+    config = {
+        "mcpServers": {
+            "fs": {"command": "npx", "args": ["-y", "@modelcontextprotocol/server-filesystem"]}
+        }
+    }
+    with patch("agentaudit.phantomdeps.check_npm_package_exists", return_value=True):
+        findings = scan_mcp_phantom_packages(config, "src")
+    assert findings == []
+
+
+def test_scan_mcp_phantom_packages_network_unknown_not_flagged():
+    config = {"mcpServers": {"ghost": {"command": "npx", "args": ["-y", "some-pkg"]}}}
+    with patch("agentaudit.phantomdeps.check_npm_package_exists", return_value=None):
+        findings = scan_mcp_phantom_packages(config, "src")
+    assert findings == []
+
+
+def test_scan_mcp_phantom_packages_versioned_pin_strips_version():
+    config = {
+        "mcpServers": {
+            "ghost": {"command": "npx", "args": ["-y", "mcp-server-ghost-xyz@1.2.3"]}
+        }
+    }
+    with patch("agentaudit.phantomdeps.check_npm_package_exists", return_value=False) as mock_check:
+        findings = scan_mcp_phantom_packages(config, "src")
+    mock_check.assert_called_once_with("mcp-server-ghost-xyz")
+    assert len(findings) == 1
+
+
+def test_scan_mcp_phantom_packages_scoped_versioned_pin():
+    config = {
+        "mcpServers": {
+            "ghost": {"command": "npx", "args": ["-y", "@scope/ghost-pkg@2.0.0"]}
+        }
+    }
+    with patch("agentaudit.phantomdeps.check_npm_package_exists", return_value=False) as mock_check:
+        findings = scan_mcp_phantom_packages(config, "src")
+    mock_check.assert_called_once_with("@scope/ghost-pkg")
+    assert len(findings) == 1
+
+
+def test_scan_mcp_phantom_packages_no_runner_not_flagged():
+    config = {"mcpServers": {"local": {"command": "/usr/local/bin/my-server"}}}
+    assert scan_mcp_phantom_packages(config, "src") == []
+
+
+def test_scan_mcp_phantom_packages_not_a_dict():
+    assert scan_mcp_phantom_packages({"mcpServers": "nope"}, "src") == []
+
+
+def test_scan_paths_for_phantom_mcp_packages(tmp_path: Path):
+    config_path = tmp_path / ".mcp.json"
+    config_path.write_text(
+        '{"mcpServers": {"ghost": {"command": "npx", "args": ["-y", "mcp-ghost-xyz"]}}}'
+    )
+    with patch("agentaudit.phantomdeps.check_npm_package_exists", return_value=False):
+        findings = scan_paths_for_phantom_mcp_packages([config_path])
+    assert len(findings) == 1
+    assert findings[0].check_id == "mcp-phantom-package"
+
+
+def test_scan_paths_for_phantom_mcp_packages_missing_file(tmp_path: Path):
+    assert scan_paths_for_phantom_mcp_packages([tmp_path / "missing.json"]) == []
 
 
 def test_scan_permissions_scoped_rule_ok():

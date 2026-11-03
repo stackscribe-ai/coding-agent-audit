@@ -162,6 +162,16 @@ next `npm install` / `pip install` ("slopsquatting"). Network errors are
 treated as inconclusive, not as a finding, so a flaky connection can't
 produce a false positive.
 
+**MCP phantom-package scan** (`scan_mcp_phantom_packages`, also opt-in via
+`--check-deps`) — the same registry-lookup idea, applied to the MCP server
+commands themselves: any `npx`/`uvx`/`pipx run` invocation in a scanned
+config is checked against npm/PyPI. This is the "MCPhantom" pattern flagged
+by Glow Labs in November 2026: a coding agent fills in a plausible but
+nonexistent MCP server package name from training data (or copies one from
+a long-archived tutorial whose package was since renamed/unpublished), and
+nothing stops an attacker from registering that exact name and having it
+run as the MCP server next time the config loads.
+
 New incidents can be added to `iocs.py` as data, without touching the
 check logic.
 

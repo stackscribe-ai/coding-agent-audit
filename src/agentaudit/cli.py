@@ -7,7 +7,12 @@ from pathlib import Path
 
 from . import __version__
 from .checks import run_all_ioc_checks
-from .configscan import default_config_paths, scan_paths, scan_tool_descriptions
+from .configscan import (
+    default_config_paths,
+    scan_paths,
+    scan_paths_for_phantom_mcp_packages,
+    scan_tool_descriptions,
+)
 from .findings import Finding, worst_severity
 from .phantomdeps import check_phantom_dependencies
 
@@ -65,10 +70,12 @@ def build_parser() -> argparse.ArgumentParser:
         "--check-deps",
         action="store_true",
         help=(
-            "with --project, also check package.json/requirements.txt/"
-            "pyproject.toml dependencies against npm/PyPI and flag any "
-            "that don't exist (possible AI-hallucinated/slopsquattable "
-            "package name). Makes read-only network requests."
+            "check package names against npm/PyPI and flag any that don't "
+            "exist (possible AI-hallucinated/slopsquattable or 'MCPhantom' "
+            "package name): with --project, also covers package.json/"
+            "requirements.txt/pyproject.toml; always covers npx/uvx/pipx "
+            "MCP server commands in the scanned config files. Makes "
+            "read-only network requests."
         ),
     )
     parser.add_argument(
@@ -95,17 +102,19 @@ def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
 
+    config_paths = default_config_paths(Path.home(), args.project)
+
     findings: list[Finding] = []
     if not args.skip_ioc:
         project_dirs = [args.project] if args.project is not None else []
         findings += run_all_ioc_checks(project_dirs=project_dirs)
     if not args.skip_config:
-        home = Path.home()
-        paths = default_config_paths(home, args.project)
-        findings += scan_paths(paths)
+        findings += scan_paths(config_paths)
 
-    if args.check_deps and args.project is not None:
-        findings += check_phantom_dependencies(args.project)
+    if args.check_deps:
+        if args.project is not None:
+            findings += check_phantom_dependencies(args.project)
+        findings += scan_paths_for_phantom_mcp_packages(config_paths)
 
     if args.tools_json is not None:
         try:
