@@ -4,6 +4,7 @@ from agentaudit.configscan import (
     default_config_paths,
     scan_config_dict,
     scan_hooks,
+    scan_known_cve_packages,
     scan_lethal_trifecta,
     scan_mcp_servers,
     scan_paths,
@@ -94,6 +95,64 @@ def test_scan_mcp_servers_raw_ip_env():
 
 def test_scan_mcp_servers_not_a_dict():
     assert scan_mcp_servers({"mcpServers": "nope"}, "src") == []
+
+
+def test_scan_known_cve_packages_vulnerable_mcp_remote_pin():
+    config = {
+        "mcpServers": {
+            "remote": {
+                "command": "npx",
+                "args": ["-y", "mcp-remote@0.1.9", "http://example.com/mcp"],
+            }
+        }
+    }
+    findings = scan_known_cve_packages(config, "src")
+    assert len(findings) == 1
+    assert findings[0].check_id == "mcp-known-cve-package"
+    assert findings[0].severity == "critical"
+    assert "CVE-2025-6514" in findings[0].references
+
+
+def test_scan_known_cve_packages_vulnerable_git_server_pin():
+    config = {
+        "mcpServers": {
+            "git": {
+                "command": "uvx",
+                "args": ["mcp-server-git==2025.9.1", "--repository", "/repo"],
+            }
+        }
+    }
+    findings = scan_known_cve_packages(config, "src")
+    assert len(findings) == 1
+    assert "CVE-2025-68143" in findings[0].references[0]
+
+
+def test_scan_known_cve_packages_fixed_version_ok():
+    config = {
+        "mcpServers": {
+            "remote": {"command": "npx", "args": ["-y", "mcp-remote@0.1.16", "https://example.com"]},
+            "git": {"command": "uvx", "args": ["mcp-server-git==2025.12.18", "--repository", "/repo"]},
+        }
+    }
+    assert scan_known_cve_packages(config, "src") == []
+
+
+def test_scan_known_cve_packages_unpinned_not_flagged():
+    config = {
+        "mcpServers": {"remote": {"command": "npx", "args": ["-y", "mcp-remote", "https://example.com"]}}
+    }
+    assert scan_known_cve_packages(config, "src") == []
+
+
+def test_scan_known_cve_packages_unrelated_package_ignored():
+    config = {
+        "mcpServers": {"fs": {"command": "npx", "args": ["-y", "@scope/pkg@0.0.1"]}}
+    }
+    assert scan_known_cve_packages(config, "src") == []
+
+
+def test_scan_known_cve_packages_not_a_dict():
+    assert scan_known_cve_packages({"mcpServers": "nope"}, "src") == []
 
 
 def test_scan_permissions_scoped_rule_ok():

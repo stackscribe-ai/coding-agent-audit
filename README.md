@@ -113,6 +113,16 @@ second look rather than proof of compromise:
   `authorized_keys`, use netcat in reverse-shell mode, etc.
 - MCP server definitions that run an unpinned package (`npx -y pkg` with
   no version pin)
+- MCP server definitions explicitly pinned to a package version with a
+  disclosed, fixed RCE CVE (added in v0.10.0): `mcp-remote` below v0.1.16
+  (**CVE-2025-6514**, CVSS 9.6 — a malicious remote server's OAuth
+  `authorization_endpoint` response is passed unsanitized to the OS,
+  arbitrary command execution on just opening the client) and
+  `mcp-server-git` below v2025.12.18 (**CVE-2025-68143/68144/68145** —
+  Anthropic's own reference git MCP server, chainable via indirect prompt
+  injection into full RCE). Only an explicit old pin is flagged — an
+  unpinned install picks up the current, patched release and is already
+  covered by the generic unpinned-package finding above
 - Auto-approved permission rules that are unscoped wildcards (e.g.
   `Bash(*)`)
 - The "lethal trifecta" pattern: an untrusted-content-fetching tool

@@ -154,6 +154,95 @@ def scan_hooks(config: dict, source_path: str) -> list[Finding]:
     return findings
 
 
+# Packages with a known, disclosed RCE/command-injection CVE in an old
+# version range that still shows up pinned in copy-pasted configs/tutorials
+# written before the fix shipped. `fixed_version` is the first version where
+# the chain is fully closed; anything strictly older is still exploitable.
+_KNOWN_VULNERABLE_PACKAGES = [
+    (
+        "mcp-remote",
+        (0, 1, 16),
+        ("CVE-2025-6514",),
+        "OS command injection (CVSS 9.6): a malicious/compromised remote MCP "
+        "server can return an `authorization_endpoint` URL during the OAuth "
+        "handshake that mcp-remote passes unsanitized to the OS, achieving "
+        "full remote code execution with no further user interaction beyond "
+        "opening the client. Affects v0.0.5-v0.1.15.",
+    ),
+    (
+        "mcp-server-git",
+        (2025, 12, 18),
+        ("CVE-2025-68143", "CVE-2025-68144", "CVE-2025-68145"),
+        "Chained path-validation bypass, unrestricted git_init, and argument "
+        "injection in Anthropic's reference git MCP server, usable via "
+        "indirect prompt injection (e.g. a planted README) to reach RCE "
+        "together with a filesystem MCP server. Fully fixed in v2025.12.18.",
+    ),
+]
+
+
+def _parse_leading_version(text: str) -> tuple[int, ...] | None:
+    match = re.match(r"^(\d+(?:\.\d+)*)", text)
+    if not match:
+        return None
+    return tuple(int(part) for part in match.group(1).split("."))
+
+
+def _version_lt(a: tuple[int, ...], b: tuple[int, ...]) -> bool:
+    n = max(len(a), len(b))
+    a_padded = a + (0,) * (n - len(a))
+    b_padded = b + (0,) * (n - len(b))
+    return a_padded < b_padded
+
+
+def scan_known_cve_packages(config: dict, source_path: str) -> list[Finding]:
+    """Flag MCP server commands pinned to a package version with a
+    disclosed, fixed RCE/command-injection CVE (see
+    ``_KNOWN_VULNERABLE_PACKAGES``). Unpinned installs are not flagged here -
+    they pick up the current (patched) release and are already covered by
+    the generic 'unpinned package' info finding in `scan_mcp_servers`.
+    """
+    servers = config.get("mcpServers") or config.get("mcp_servers")
+    if not isinstance(servers, dict):
+        return []
+    findings: list[Finding] = []
+    for server_name, server_cfg in servers.items():
+        if not isinstance(server_cfg, dict):
+            continue
+        command = server_cfg.get("command", "")
+        args = server_cfg.get("args") or []
+        full_cmdline = " ".join([command, *[str(a) for a in args]])
+
+        for pkg_name, fixed_version, cve_ids, description in _KNOWN_VULNERABLE_PACKAGES:
+            pin_match = re.search(
+                rf"\b{re.escape(pkg_name)}(?:@|==)([0-9][0-9.]*)", full_cmdline
+            )
+            if not pin_match:
+                continue
+            pinned_version = _parse_leading_version(pin_match.group(1))
+            if pinned_version is None or not _version_lt(pinned_version, fixed_version):
+                continue
+            findings.append(
+                Finding(
+                    check_id="mcp-known-cve-package",
+                    severity="critical",
+                    title=(
+                        f"MCP server '{server_name}' pins {pkg_name}@"
+                        f"{pin_match.group(1)}, vulnerable to {', '.join(cve_ids)}"
+                    ),
+                    detail=(
+                        f"{description} The config explicitly pins a version "
+                        f"older than the fixed {'.'.join(map(str, fixed_version))}, "
+                        f"so upgrading `{pkg_name}` globally will not help "
+                        f"until this pin is also updated."
+                    ),
+                    path=source_path,
+                    references=list(cve_ids),
+                )
+            )
+    return findings
+
+
 def scan_mcp_servers(config: dict, source_path: str) -> list[Finding]:
     servers = config.get("mcpServers") or config.get("mcp_servers")
     if not isinstance(servers, dict):
@@ -293,6 +382,7 @@ def scan_config_dict(config: dict, source_path: str) -> list[Finding]:
     findings: list[Finding] = []
     findings += scan_hooks(config, source_path)
     findings += scan_mcp_servers(config, source_path)
+    findings += scan_known_cve_packages(config, source_path)
     findings += scan_permissions(config, source_path)
     findings += scan_lethal_trifecta(config, source_path)
     return findings
