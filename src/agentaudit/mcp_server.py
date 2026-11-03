@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Optional
 
 from mcp.server.mcpserver import MCPServer
+from mcp.types import ToolAnnotations
 
 from . import __version__
 from .checks import run_all_ioc_checks
@@ -53,7 +54,22 @@ def _render(findings: list[Finding]) -> str:
     return "\n".join(lines)
 
 
-@server.tool()
+_LOCAL_READ_ONLY = ToolAnnotations(
+    readOnlyHint=True,
+    destructiveHint=False,
+    idempotentHint=True,
+    openWorldHint=False,
+)
+
+_NETWORK_READ_ONLY = ToolAnnotations(
+    readOnlyHint=True,
+    destructiveHint=False,
+    idempotentHint=True,
+    openWorldHint=True,
+)
+
+
+@server.tool(annotations=_LOCAL_READ_ONLY)
 def scan_for_known_backdoors() -> str:
     """Scan this machine for known, publicly-documented indicators of
     compromise from AI-coding-assistant supply-chain attacks (SSH backdoor
@@ -62,7 +78,7 @@ def scan_for_known_backdoors() -> str:
     return _render(run_all_ioc_checks())
 
 
-@server.tool()
+@server.tool(annotations=_LOCAL_READ_ONLY)
 def scan_mcp_config(project_dir: Optional[str] = None) -> str:
     """Scan this machine's Claude Code / Claude Desktop / MCP config files
     for risky patterns: hooks that pipe a remote download into a shell,
@@ -80,7 +96,7 @@ def scan_mcp_config(project_dir: Optional[str] = None) -> str:
     return _render(scan_paths(paths))
 
 
-@server.tool()
+@server.tool(annotations=_NETWORK_READ_ONLY)
 def scan_phantom_dependencies(project_dir: str) -> str:
     """Check a project's package.json / requirements.txt / pyproject.toml
     dependencies against the npm/PyPI registries and flag any package name

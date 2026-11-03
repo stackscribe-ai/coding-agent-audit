@@ -2,6 +2,8 @@
 
 <!-- mcp-name: io.github.stackscribe-ai/coding-agent-audit -->
 
+[![M8ven Score](https://m8ven.ai/badge/mcp/stackscribe-ai-coding-agent-audit-1xiuww?v=c2c77be885b345ce5ac975e42a68268d)](https://m8ven.ai/mcp/stackscribe-ai-coding-agent-audit-1xiuww?s=readme)
+
 A small, open-source CLI that scans your machine for:
 
 1. **Known indicators of compromise (IOCs)** from publicly documented
