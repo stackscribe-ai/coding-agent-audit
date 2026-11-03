@@ -91,6 +91,14 @@ Cursor Marketplace Claude Code trojan:
   VS Code and Claude Desktop), plus a presence check that flags Codex/VS
   Code (still unpatched at disclosure time) or Claude Desktop (patch status
   unconfirmed) if installed, with mitigation guidance
+- **Mini Shai-Hulud** (the npm worm that targets Claude Code / VS Code
+  specifically, added in v0.7.0): the `gh-token-monitor` persistence
+  service (systemd user service on Linux, LaunchAgent on macOS — both
+  carry a documented dead-man's switch that wipes your home directory if
+  the stolen GitHub token is revoked before the service is removed), and
+  the `.claude/router_runtime.js` / `.claude/setup.mjs` / `.vscode/setup.mjs`
+  dropper files it plants in a project (checked in the current directory
+  and any `--project` path)
 
 **Config heuristics** (`configscan.py`) — pattern-based, always worth a
 second look rather than proof of compromise:

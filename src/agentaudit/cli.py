@@ -85,7 +85,8 @@ def main(argv: list[str] | None = None) -> int:
 
     findings: list[Finding] = []
     if not args.skip_ioc:
-        findings += run_all_ioc_checks()
+        project_dirs = [args.project] if args.project is not None else []
+        findings += run_all_ioc_checks(project_dirs=project_dirs)
     if not args.skip_config:
         home = Path.home()
         paths = default_config_paths(home, args.project)

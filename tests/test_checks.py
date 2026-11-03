@@ -9,6 +9,9 @@ from agentaudit.checks import (
     check_linux_cron_persistence,
     check_macos_launch_agent,
     check_marker_files,
+    check_shai_hulud_launch_agent,
+    check_shai_hulud_project_markers,
+    check_shai_hulud_systemd_service,
     check_ssh_authorized_keys,
     check_tmp_tunnel_keys,
     check_windows_scheduled_task,
@@ -19,6 +22,7 @@ from agentaudit.iocs import INCIDENTS
 
 _IOC = INCIDENTS["openvsx-claude-code-2026-10"]
 _EMBRACE = INCIDENTS["embrace-embedded-browser-2026-10"]
+_SHAI_HULUD = INCIDENTS["mini-shai-hulud-gh-token-monitor-2026"]
 
 
 def test_ssh_authorized_keys_clean(tmp_path: Path):
@@ -245,3 +249,81 @@ def test_embrace_unpatched_tools_claude_desktop_only_is_info(tmp_path: Path):
     assert len(findings) == 1
     assert findings[0].severity == "info"
     assert "Claude Desktop" in findings[0].detail
+
+
+def test_shai_hulud_systemd_service_absent(tmp_path: Path):
+    assert check_shai_hulud_systemd_service(tmp_path) == []
+
+
+def test_shai_hulud_systemd_service_present(tmp_path: Path):
+    relpath = _SHAI_HULUD["linux_systemd_relpath"]
+    target = tmp_path / relpath
+    target.parent.mkdir(parents=True)
+    target.write_text("[Unit]\nDescription=gh-token-monitor\n")
+    findings = check_shai_hulud_systemd_service(tmp_path)
+    assert len(findings) == 1
+    assert findings[0].severity == "critical"
+    assert findings[0].check_id == "shai-hulud-systemd-service"
+
+
+def test_shai_hulud_launch_agent_absent(tmp_path: Path):
+    assert check_shai_hulud_launch_agent(tmp_path) == []
+
+
+def test_shai_hulud_launch_agent_present(tmp_path: Path):
+    agents_dir = tmp_path / "Library" / "LaunchAgents"
+    agents_dir.mkdir(parents=True)
+    (agents_dir / _SHAI_HULUD["macos_launch_agent"]).write_text("<plist></plist>")
+    findings = check_shai_hulud_launch_agent(tmp_path)
+    assert len(findings) == 1
+    assert findings[0].severity == "critical"
+    assert findings[0].check_id == "shai-hulud-launch-agent"
+
+
+def test_shai_hulud_project_markers_clean(tmp_path: Path):
+    (tmp_path / ".claude").mkdir()
+    assert check_shai_hulud_project_markers([tmp_path]) == []
+
+
+def test_shai_hulud_project_markers_one_present(tmp_path: Path):
+    claude_dir = tmp_path / ".claude"
+    claude_dir.mkdir()
+    (claude_dir / "router_runtime.js").write_text("// payload")
+    findings = check_shai_hulud_project_markers([tmp_path])
+    assert len(findings) == 1
+    assert findings[0].severity == "critical"
+    assert findings[0].check_id == "shai-hulud-project-marker"
+
+
+def test_shai_hulud_project_markers_all_present(tmp_path: Path):
+    for relpath in _SHAI_HULUD["project_marker_files"]:
+        target = tmp_path / relpath
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text("x")
+    findings = check_shai_hulud_project_markers([tmp_path])
+    assert len(findings) == len(_SHAI_HULUD["project_marker_files"])
+
+
+def test_shai_hulud_project_markers_nonexistent_dir(tmp_path: Path):
+    assert check_shai_hulud_project_markers([tmp_path / "nope"]) == []
+
+
+def test_shai_hulud_project_markers_skips_none():
+    assert check_shai_hulud_project_markers([None]) == []
+
+
+def test_shai_hulud_project_markers_dedupes_duplicate_dirs(tmp_path: Path):
+    claude_dir = tmp_path / ".claude"
+    claude_dir.mkdir()
+    (claude_dir / "setup.mjs").write_text("// dropper")
+    findings = check_shai_hulud_project_markers([tmp_path, tmp_path])
+    assert len(findings) == 1
+
+
+def test_shai_hulud_project_markers_dedupes_relative_and_absolute(tmp_path: Path, monkeypatch):
+    claude_dir = tmp_path / ".claude"
+    claude_dir.mkdir()
+    (claude_dir / "setup.mjs").write_text("// dropper")
+    monkeypatch.chdir(tmp_path)
+    findings = check_shai_hulud_project_markers([tmp_path, Path(".")])
+    assert len(findings) == 1

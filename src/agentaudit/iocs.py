@@ -76,4 +76,35 @@ INCIDENTS = {
         # As of the references above; re-check before treating as current.
         "unpatched_products": ["OpenAI Codex", "VS Code"],
     },
+    "mini-shai-hulud-gh-token-monitor-2026": {
+        "name": "Mini Shai-Hulud npm worm, gh-token-monitor persistence (2026)",
+        "description": (
+            "A self-propagating npm supply-chain worm (tracked by several "
+            "vendors as Mini Shai-Hulud) that runs from a compromised "
+            "package's install script, drops an obfuscated Bun payload "
+            "(.claude/router_runtime.js, .claude/setup.mjs) in the "
+            "repo it's invoked in, and writes a SessionStart hook into "
+            "that repo's .claude/settings.json so the payload re-executes "
+            "every time Claude Code opens the project; a matching "
+            ".vscode/tasks.json folderOpen task does the same for VS Code. "
+            "On the host it also installs an OS-level persistence service "
+            "named gh-token-monitor (a systemd user service on Linux, a "
+            "LaunchAgent on macOS) that harvests GitHub/npm/cloud "
+            "credentials and, per a documented dead-man's switch, runs "
+            "`rm -rf ~` if the stolen GitHub token is revoked before the "
+            "service is removed."
+        ),
+        "references": [
+            "https://www.stepsecurity.io/blog/mini-shai-hulud-is-back-a-self-spreading-supply-chain-attack-hits-the-npm-ecosystem",
+            "https://www.mend.io/blog/shai-hulud-sap-cap-supply-chain-attack-claude-code/",
+            "https://www.wiz.io/blog/mini-shai-hulud-strikes-again-tanstack-more-npm-packages-compromised",
+        ],
+        "linux_systemd_relpath": ".config/systemd/user/gh-token-monitor.service",
+        "macos_launch_agent": "com.user.gh-token-monitor.plist",
+        "project_marker_files": [
+            ".claude/router_runtime.js",
+            ".claude/setup.mjs",
+            ".vscode/setup.mjs",
+        ],
+    },
 }

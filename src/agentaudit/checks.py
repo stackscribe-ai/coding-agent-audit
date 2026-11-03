@@ -19,6 +19,7 @@ from .iocs import INCIDENTS
 
 _IOC = INCIDENTS["openvsx-claude-code-2026-10"]
 _EMBRACE = INCIDENTS["embrace-embedded-browser-2026-10"]
+_SHAI_HULUD = INCIDENTS["mini-shai-hulud-gh-token-monitor-2026"]
 
 
 def check_ssh_authorized_keys(home: Path) -> list[Finding]:
@@ -400,7 +401,99 @@ def check_embrace_unpatched_tools(home: Path) -> list[Finding]:
     ]
 
 
-def run_all_ioc_checks(home: Optional[Path] = None) -> list[Finding]:
+def check_shai_hulud_systemd_service(home: Path) -> list[Finding]:
+    """Flag the gh-token-monitor systemd user service used for persistence
+    and credential theft on Linux."""
+    path = home / _SHAI_HULUD["linux_systemd_relpath"]
+    if path.exists():
+        return [
+            Finding(
+                check_id="shai-hulud-systemd-service",
+                severity="critical",
+                title="Known Mini Shai-Hulud persistence service found",
+                detail=(
+                    f"'{path}' exists, matching the gh-token-monitor "
+                    f"systemd user service installed by the "
+                    f"{_SHAI_HULUD['name']}. Stop and remove it "
+                    f"(`systemctl --user stop gh-token-monitor.service`), "
+                    f"then rotate every credential on this machine before "
+                    f"revoking any GitHub token - a documented dead-man's "
+                    f"switch wipes the home directory (`rm -rf ~`) if the "
+                    f"stolen token is revoked while the service is still "
+                    f"installed."
+                ),
+                path=str(path),
+                references=_SHAI_HULUD["references"],
+            )
+        ]
+    return []
+
+
+def check_shai_hulud_launch_agent(home: Path) -> list[Finding]:
+    """Flag the gh-token-monitor LaunchAgent used for persistence and
+    credential theft on macOS."""
+    path = home / "Library" / "LaunchAgents" / _SHAI_HULUD["macos_launch_agent"]
+    if path.exists():
+        return [
+            Finding(
+                check_id="shai-hulud-launch-agent",
+                severity="critical",
+                title="Known Mini Shai-Hulud persistence LaunchAgent found",
+                detail=(
+                    f"'{path}' exists, matching the gh-token-monitor "
+                    f"LaunchAgent installed by the {_SHAI_HULUD['name']}. "
+                    f"Unload and remove it, then rotate every credential "
+                    f"on this machine before revoking any GitHub token - a "
+                    f"documented dead-man's switch wipes the home "
+                    f"directory (`rm -rf ~`) if the stolen token is "
+                    f"revoked while the agent is still installed."
+                ),
+                path=str(path),
+                references=_SHAI_HULUD["references"],
+            )
+        ]
+    return []
+
+
+def check_shai_hulud_project_markers(project_dirs: Iterable[Optional[Path]]) -> list[Finding]:
+    """Flag known Mini Shai-Hulud dropper files inside one or more project
+    directories (e.g. the current working directory, or --project)."""
+    findings: list[Finding] = []
+    seen: set[Path] = set()
+    for project_dir in project_dirs:
+        if project_dir is None or not project_dir.is_dir():
+            continue
+        for relpath in _SHAI_HULUD["project_marker_files"]:
+            path = project_dir / relpath
+            resolved = path.resolve()
+            if resolved in seen or not path.is_file():
+                continue
+            seen.add(resolved)
+            findings.append(
+                Finding(
+                    check_id="shai-hulud-project-marker",
+                    severity="critical",
+                    title="Known Mini Shai-Hulud dropper file found in project",
+                    detail=(
+                        f"'{path}' exists, matching a dropper file planted "
+                        f"by the {_SHAI_HULUD['name']}, typically alongside "
+                        f"a SessionStart hook in .claude/settings.json (or "
+                        f"a folderOpen task in .vscode/tasks.json) that "
+                        f"re-executes it every time the project is opened. "
+                        f"Remove the file, check both of those config "
+                        f"files for a matching hook/task, and rotate every "
+                        f"credential this machine has used."
+                    ),
+                    path=str(path),
+                    references=_SHAI_HULUD["references"],
+                )
+            )
+    return findings
+
+
+def run_all_ioc_checks(
+    home: Optional[Path] = None, project_dirs: Iterable[Path] = ()
+) -> list[Finding]:
     """Run every IOC check against the real local machine."""
     home = home or Path.home()
     tmp_dir = Path(os.environ.get("TMPDIR", "/tmp"))
@@ -414,8 +507,12 @@ def run_all_ioc_checks(home: Optional[Path] = None) -> list[Finding]:
     findings += check_embrace_unpatched_tools(home)
     findings += check_c2_network_indicators(live_process_lines())
     findings += check_linux_cron_persistence(live_crontab_text())
+    findings += check_shai_hulud_project_markers([Path.cwd(), *project_dirs])
+    if platform.system() == "Linux":
+        findings += check_shai_hulud_systemd_service(home)
     if platform.system() == "Darwin":
         findings += check_macos_launch_agent(home)
+        findings += check_shai_hulud_launch_agent(home)
     if platform.system() == "Windows":
         appdata = Path(os.environ.get("APPDATA", home / "AppData" / "Roaming"))
         findings += check_windows_startup_folder(appdata)
