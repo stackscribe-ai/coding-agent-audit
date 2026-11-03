@@ -174,6 +174,9 @@ heuristics) - it can't do this package's filesystem IOC scan remotely.
 Full request/response shape: `GET /openapi.json` on that URL, or the
 [source](https://github.com/stackscribe-ai/coding-agent-audit) of the x402
 worker. The free CLI above remains the full, unpaid alternative.
+Registered and domain-verified on [402index.io](https://402index.io); see
+[the writeup](https://stackscribe-ai.github.io/x402/cloudflare-workers/agent-payments/2026/11/03/x402-compliance-crawler-lessons.html)
+on the three compliance gaps discovery crawlers found that our own tests missed.
 
 ## GitHub Action (CI gate for your repo's own config)
 
