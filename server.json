@@ -7,13 +7,13 @@
     "source": "github",
     "id": "1439830857"
   },
-  "version": "0.6.1",
+  "version": "0.7.0",
   "packages": [
     {
       "registryType": "pypi",
       "registryBaseUrl": "https://pypi.org",
       "identifier": "coding-agent-audit",
-      "version": "0.6.1",
+      "version": "0.7.0",
       "runtimeHint": "uvx",
       "transport": {
         "type": "stdio"
