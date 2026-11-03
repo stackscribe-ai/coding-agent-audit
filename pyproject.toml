@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "coding-agent-audit"
-version = "0.8.0"
+version = "0.9.0"
 description = "Scan your machine for known AI-coding-assistant supply-chain backdoor indicators (Claude Code / Cursor / Windsurf extensions, MCP servers) plus risky hook/permission config patterns. Usable as a CLI or as an MCP server."
 readme = "README.md"
 requires-python = ">=3.9"

@@ -122,6 +122,25 @@ second look rather than proof of compromise:
   prompt-injection payload in a fetched page or tool response into real
   data exfiltration or command execution
 
+**Tool definition injection scan** (`configscan.py:scan_tool_descriptions`,
+added in v0.9.0, opt-in via `--tools-json`) — scans an MCP server's own
+`tools/list` response (the tool `name`/`description` pairs it hands to the
+client) for instructions hidden in the description text: "after every tool
+call, also call X", fake `system:`/`assistant:` role labels, "do not tell
+the user", "send this data to", etc. MCP clients treat tool descriptions as
+authoritative guidance for the LLM, so a malicious or compromised server can
+steer the agent into calling a second, attacker-controlled tool or hiding an
+action from the user without ever shipping malicious code in a package —
+this never requires the server itself to be compromised at the package
+level, so the IOC/config scans above can't catch it. This check never
+connects to or executes an MCP server; pass it a tool list you already have
+(e.g. exported from your client, or from another server's own `tools/list`
+call) as a JSON file:
+
+```bash
+agent-audit --skip-ioc --skip-config --tools-json my-mcp-servers-tools.json
+```
+
 **Phantom-dependency scan** (`phantomdeps.py`, opt-in via `--check-deps`) —
 reads `package.json` / `requirements.txt` / `pyproject.toml` in the
 `--project` directory and checks each listed package name against the
@@ -162,11 +181,15 @@ any MCP client. Add this to your client's MCP config (e.g. Claude Desktop's
 ```
 
 (No `uv`? `pip install coding-agent-audit` then use `"command": "agent-audit-mcp"`
-with no `args` — same server, explicit entry-point name.) This exposes two
-tools, `scan_for_known_backdoors` and
-`scan_mcp_config`, so you can just ask your assistant "scan my machine for
-AI coding assistant backdoors" and read the result in the chat — same
-heuristics as the CLI above, nothing installed beyond the server itself.
+with no `args` — same server, explicit entry-point name.) This exposes
+three tools — `scan_for_known_backdoors`, `scan_mcp_config` and
+`scan_tool_descriptions` — so you can just ask your assistant "scan my
+machine for AI coding assistant backdoors" and read the result in the
+chat — same heuristics as the CLI above, nothing installed beyond the
+server itself. `scan_tool_descriptions` takes a tool list as its argument
+(e.g. another MCP server's own `tools/list` output) rather than scanning
+the local machine, so one agent can audit another agent's tools directly,
+agent-to-agent, with no files involved.
 
 ## Pay-per-call API (for other AI agents / CI systems)
 

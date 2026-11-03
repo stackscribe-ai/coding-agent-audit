@@ -7,7 +7,7 @@ from pathlib import Path
 
 from . import __version__
 from .checks import run_all_ioc_checks
-from .configscan import default_config_paths, scan_paths
+from .configscan import default_config_paths, scan_paths, scan_tool_descriptions
 from .findings import Finding, worst_severity
 from .phantomdeps import check_phantom_dependencies
 
@@ -71,6 +71,18 @@ def build_parser() -> argparse.ArgumentParser:
             "package name). Makes read-only network requests."
         ),
     )
+    parser.add_argument(
+        "--tools-json",
+        type=Path,
+        default=None,
+        help=(
+            "path to a JSON file containing an MCP tools/list response "
+            "(a list of {\"name\": ..., \"description\": ...} dicts, or a "
+            "{\"tools\": [...]} wrapper) to scan for instructions hidden in "
+            "tool descriptions ('tool definition injection'). Never "
+            "connects to or executes an MCP server itself."
+        ),
+    )
     parser.add_argument("--json", action="store_true", help="output JSON instead of text")
     parser.add_argument(
         "--no-footer", action="store_true", help="suppress the closing promo line"
@@ -94,6 +106,18 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.check_deps and args.project is not None:
         findings += check_phantom_dependencies(args.project)
+
+    if args.tools_json is not None:
+        try:
+            data = json.loads(args.tools_json.read_text())
+        except (OSError, json.JSONDecodeError) as exc:
+            print(f"error reading --tools-json {args.tools_json}: {exc}", file=sys.stderr)
+            return 2
+        tools = data.get("tools", data) if isinstance(data, dict) else data
+        if not isinstance(tools, list):
+            print(f"error: --tools-json {args.tools_json} must contain a list of tools", file=sys.stderr)
+            return 2
+        findings += scan_tool_descriptions(tools, source_path=str(args.tools_json))
 
     if args.json:
         print(json.dumps([f.to_dict() for f in findings], indent=2))

@@ -113,6 +113,27 @@ def scan_phantom_dependencies(project_dir: str) -> str:
     return _render(check_phantom_dependencies(Path(project_dir)))
 
 
+@server.tool(annotations=_LOCAL_READ_ONLY)
+def scan_tool_descriptions(tools: list[dict]) -> str:
+    """Scan a list of MCP tool definitions (the 'tools/list' response an
+    MCP server returns, e.g. [{"name": "search", "description": "..."}])
+    for instructions hidden in the description field - 'tool definition
+    injection'. A malicious or compromised MCP server can register a tool
+    whose description tells the LLM to also call a second,
+    attacker-controlled tool, or to hide an action from the user, without
+    ever shipping malicious code in a package. Pass another MCP server's
+    own tools/list output straight through; this never connects to or
+    executes any server itself.
+
+    Args:
+        tools: list of tool definitions, each with at least a
+            "description" field.
+    """
+    from .configscan import scan_tool_descriptions as _scan
+
+    return _render(_scan(tools))
+
+
 def main() -> None:
     server.run()
 

@@ -32,6 +32,75 @@ _RISKY_COMMAND_PATTERNS = [
 
 _IP_LITERAL = re.compile(r"\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b")
 
+# Phrases that show up in "tool definition injection": an MCP server's own
+# `description` field (shown to the LLM at tools/list time, not to the user)
+# carries an instruction rather than documentation, steering the agent into
+# calling a second, attacker-controlled tool or hiding/forwarding data.
+# Heuristic and easy to evade with synonyms/obfuscation - a first-pass filter,
+# not a guarantee the server is safe.
+_TOOL_DESCRIPTION_INJECTION_PATTERNS = [
+    (r"after (every|each|all)\s+(tool\s*call|file\s*operation|request|response)",
+     "instructs the agent to take a follow-up action after every tool call"),
+    (r"\b(also|additionally)\s+(call|invoke|run|execute)\b", "tells the agent to also call another tool"),
+    (r"ignore (previous|prior|all)\s+instructions", "attempts a prompt-injection override phrase"),
+    (r"\b(system|assistant|user)\s*:", "embeds a fake conversation-role label"),
+    (r"do not\s+(tell|inform|mention|disclose|reveal)\b", "tells the agent to hide the action from the user"),
+    (r"\bsecretly\b", "uses the word 'secretly' to describe the tool's behaviour"),
+    (r"send\s+(this|the|all)\s+(data|result|output|context|file)s?\s+to\b",
+     "instructs the agent to forward data to a destination"),
+    (r"before\s+(returning|responding|completing)\b.*\b(call|invoke|send)\b",
+     "instructs an extra action before the agent's normal response"),
+    (r"always\s+(include|append|attach)\b", "tells the agent to always attach extra data to its calls"),
+]
+_COMPILED_TOOL_DESCRIPTION_PATTERNS = [
+    (re.compile(p, re.IGNORECASE), label) for p, label in _TOOL_DESCRIPTION_INJECTION_PATTERNS
+]
+
+
+def scan_tool_descriptions(tools: Iterable[dict], source_path: str = "<mcp tools/list>") -> list[Finding]:
+    """Scan MCP tool definitions (the ``tools/list`` response an MCP server
+    hands to the client, i.e. a list of ``{"name": ..., "description": ...}``
+    dicts) for instructions hidden in the ``description`` field.
+
+    Unlike the rest of this module, this does not read local config: callers
+    must supply the already-fetched tool list (e.g. from a Claude Desktop/
+    Code debug export, or from calling the server's own ``tools/list`` and
+    passing the result straight through). This tool never connects to or
+    executes an MCP server itself - running a possibly-malicious server's
+    command just to audit it would defeat the point.
+    """
+    findings: list[Finding] = []
+    for tool in tools:
+        if not isinstance(tool, dict):
+            continue
+        name = tool.get("name", "<unnamed>")
+        description = tool.get("description") or ""
+        if not isinstance(description, str):
+            continue
+        for pattern, explanation in _COMPILED_TOOL_DESCRIPTION_PATTERNS:
+            match = pattern.search(description)
+            if match:
+                findings.append(
+                    Finding(
+                        check_id="mcp-tool-description-injection",
+                        severity="warning",
+                        title=f"Tool '{name}' description {explanation}",
+                        detail=(
+                            f"The description field of tool '{name}' matches "
+                            f"pattern {pattern.pattern!r} at position "
+                            f"{match.start()}. MCP clients show tool "
+                            f"descriptions to the LLM as authoritative "
+                            f"guidance, so a server can steer the agent into "
+                            f"calling an attacker-controlled tool or hiding "
+                            f"an action from the user without ever "
+                            f"compromising a package. Matched text: "
+                            f"{description[max(0, match.start()-20):match.end()+20]!r}"
+                        ),
+                        path=source_path,
+                    )
+                )
+    return findings
+
 
 def _iter_hook_commands(hooks_obj) -> Iterable[str]:
     """Walk a Claude Code-style `hooks` object and yield every shell command
