@@ -7,6 +7,7 @@ module is unit-testable without touching a real home directory.
 from __future__ import annotations
 
 import hashlib
+import json
 import os
 import platform
 import re
@@ -14,12 +15,14 @@ import subprocess
 from pathlib import Path
 from typing import Iterable, Optional
 
+from .configscan import default_config_paths
 from .findings import Finding
 from .iocs import INCIDENTS
 
 _IOC = INCIDENTS["openvsx-claude-code-2026-10"]
 _EMBRACE = INCIDENTS["embrace-embedded-browser-2026-10"]
 _SHAI_HULUD = INCIDENTS["mini-shai-hulud-gh-token-monitor-2026"]
+_SANDWORM = INCIDENTS["sandworm-mode-npm-2026-11"]
 
 
 def check_ssh_authorized_keys(home: Path) -> list[Finding]:
@@ -491,6 +494,84 @@ def check_shai_hulud_project_markers(project_dirs: Iterable[Optional[Path]]) -> 
     return findings
 
 
+def check_sandworm_mode_dev_utils(home: Path) -> list[Finding]:
+    """Flag the hidden ~/.dev-utils/ directory the SANDWORM_MODE npm worm
+    uses to host its rogue local MCP server."""
+    path = home / _SANDWORM["hidden_dir"]
+    if path.is_dir():
+        return [
+            Finding(
+                check_id="sandworm-mode-dev-utils-dir",
+                severity="critical",
+                title="Known SANDWORM_MODE rogue MCP server directory found",
+                detail=(
+                    f"'{path}' exists, matching the hidden rogue MCP "
+                    f"server directory planted by the {_SANDWORM['name']}. "
+                    f"Remove the directory, check your Claude Code / "
+                    f"Cursor / Windsurf / Continue MCP config for a server "
+                    f"registration pointing at it (often named one of "
+                    f"{', '.join(_SANDWORM['rogue_tool_names'])}), and "
+                    f"rotate every SSH key, AWS credential and token on "
+                    f"this machine."
+                ),
+                path=str(path),
+                references=_SANDWORM["references"],
+            )
+        ]
+    return []
+
+
+def check_sandworm_mode_mcp_registration(config_paths: Iterable[Path]) -> list[Finding]:
+    """Flag any MCP server registration (Claude Code, Cursor, Windsurf,
+    Continue) that points at the SANDWORM_MODE rogue server directory or
+    uses one of its giveaway tool names."""
+    findings: list[Finding] = []
+    for path in config_paths:
+        if not path.is_file():
+            continue
+        try:
+            config = json.loads(path.read_text())
+        except (OSError, json.JSONDecodeError):
+            continue
+        if not isinstance(config, dict):
+            continue
+        servers = config.get("mcpServers") or config.get("mcp_servers")
+        if not isinstance(servers, dict):
+            continue
+        for server_name, server_cfg in servers.items():
+            if not isinstance(server_cfg, dict):
+                continue
+            command = str(server_cfg.get("command", ""))
+            args = " ".join(str(a) for a in (server_cfg.get("args") or []))
+            full_cmdline = f"{command} {args}"
+            hit_dir = _SANDWORM["hidden_dir"] in full_cmdline
+            hit_name = server_name in _SANDWORM["rogue_tool_names"]
+            if not (hit_dir or hit_name):
+                continue
+            reason = (
+                f"points at the rogue {_SANDWORM['hidden_dir']} directory"
+                if hit_dir
+                else "uses a known SANDWORM_MODE giveaway tool name"
+            )
+            findings.append(
+                Finding(
+                    check_id="sandworm-mode-mcp-registration",
+                    severity="critical",
+                    title="Known SANDWORM_MODE rogue MCP server registration found",
+                    detail=(
+                        f"MCP server '{server_name}' in '{path}' {reason}, "
+                        f"matching the {_SANDWORM['name']}. Remove this "
+                        f"server entry, delete ~/{_SANDWORM['hidden_dir']}/, "
+                        f"and rotate every SSH key, AWS credential and "
+                        f"token on this machine."
+                    ),
+                    path=str(path),
+                    references=_SANDWORM["references"],
+                )
+            )
+    return findings
+
+
 def run_all_ioc_checks(
     home: Optional[Path] = None, project_dirs: Iterable[Path] = ()
 ) -> list[Finding]:
@@ -508,6 +589,12 @@ def run_all_ioc_checks(
     findings += check_c2_network_indicators(live_process_lines())
     findings += check_linux_cron_persistence(live_crontab_text())
     findings += check_shai_hulud_project_markers([Path.cwd(), *project_dirs])
+    findings += check_sandworm_mode_dev_utils(home)
+    config_paths: dict[str, Path] = {str(p): p for p in default_config_paths(home)}
+    for project_dir in [Path.cwd(), *project_dirs]:
+        for p in default_config_paths(home, project_dir):
+            config_paths[str(p)] = p
+    findings += check_sandworm_mode_mcp_registration(config_paths.values())
     if platform.system() == "Linux":
         findings += check_shai_hulud_systemd_service(home)
     if platform.system() == "Darwin":

@@ -107,4 +107,29 @@ INCIDENTS = {
             ".vscode/setup.mjs",
         ],
     },
+    "sandworm-mode-npm-2026-11": {
+        "name": "SANDWORM_MODE npm supply-chain worm, rogue MCP server (Nov 2026)",
+        "description": (
+            "A self-propagating npm supply-chain worm (SANDWORM_MODE), "
+            "distributed via 19 typosquatted packages published under the "
+            "'official334' and 'javaorg' npm aliases (e.g. suport-color, a "
+            "typosquat of supports-color). Its install script drops a "
+            "hidden directory, ~/.dev-utils/, containing a rogue local MCP "
+            "server and registers it with Claude Code, Cursor, Windsurf "
+            "and Continue under three innocuous-sounding tool names "
+            "(index_project, lint_check, scan_dependencies) so the AI "
+            "assistant itself ends up invoking it; the server then reads "
+            "SSH keys, AWS credentials and password-manager secrets, "
+            "installs Git-hooks persistence, and propagates by publishing "
+            "further typosquatted packages."
+        ),
+        "references": [
+            "https://socket.dev/blog/sandworm-mode-npm-worm-ai-toolchain-poisoning",
+            "https://www.endorlabs.com/learn/sandworm-mode-dissecting-a-multi-stage-npm-supply-chain-attack",
+            "https://www.securityweek.com/new-sandworm_mode-supply-chain-attack-hits-npm/",
+        ],
+        "hidden_dir": ".dev-utils",
+        "rogue_tool_names": ["index_project", "lint_check", "scan_dependencies"],
+        "typosquat_aliases": ["official334", "javaorg"],
+    },
 }

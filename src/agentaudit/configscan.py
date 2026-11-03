@@ -245,12 +245,15 @@ def default_config_paths(home: Path, project_dir: Path | None = None) -> list[Pa
         / "Roaming"
         / "Claude"
         / "claude_desktop_config.json",
+        home / ".cursor" / "mcp.json",
+        home / ".codeium" / "windsurf" / "mcp_config.json",
     ]
     if project_dir is not None:
         paths += [
             project_dir / ".claude" / "settings.json",
             project_dir / ".claude" / "settings.local.json",
             project_dir / ".mcp.json",
+            project_dir / ".cursor" / "mcp.json",
         ]
     return paths
 

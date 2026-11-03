@@ -1,6 +1,8 @@
 import hashlib
 from pathlib import Path
 
+import json
+
 from agentaudit.checks import (
     check_c2_network_indicators,
     check_embrace_copilot_version,
@@ -9,6 +11,8 @@ from agentaudit.checks import (
     check_linux_cron_persistence,
     check_macos_launch_agent,
     check_marker_files,
+    check_sandworm_mode_dev_utils,
+    check_sandworm_mode_mcp_registration,
     check_shai_hulud_launch_agent,
     check_shai_hulud_project_markers,
     check_shai_hulud_systemd_service,
@@ -23,6 +27,7 @@ from agentaudit.iocs import INCIDENTS
 _IOC = INCIDENTS["openvsx-claude-code-2026-10"]
 _EMBRACE = INCIDENTS["embrace-embedded-browser-2026-10"]
 _SHAI_HULUD = INCIDENTS["mini-shai-hulud-gh-token-monitor-2026"]
+_SANDWORM = INCIDENTS["sandworm-mode-npm-2026-11"]
 
 
 def test_ssh_authorized_keys_clean(tmp_path: Path):
@@ -327,3 +332,53 @@ def test_shai_hulud_project_markers_dedupes_relative_and_absolute(tmp_path: Path
     monkeypatch.chdir(tmp_path)
     findings = check_shai_hulud_project_markers([tmp_path, Path(".")])
     assert len(findings) == 1
+
+
+def test_sandworm_mode_dev_utils_absent(tmp_path: Path):
+    assert check_sandworm_mode_dev_utils(tmp_path) == []
+
+
+def test_sandworm_mode_dev_utils_present(tmp_path: Path):
+    (tmp_path / _SANDWORM["hidden_dir"]).mkdir()
+    findings = check_sandworm_mode_dev_utils(tmp_path)
+    assert len(findings) == 1
+    assert findings[0].severity == "critical"
+    assert findings[0].check_id == "sandworm-mode-dev-utils-dir"
+
+
+def test_sandworm_mode_mcp_registration_clean(tmp_path: Path):
+    config = tmp_path / ".claude.json"
+    config.write_text(json.dumps({"mcpServers": {"filesystem": {"command": "npx", "args": ["-y", "@a/b@1.0.0"]}}}))
+    assert check_sandworm_mode_mcp_registration([config]) == []
+
+
+def test_sandworm_mode_mcp_registration_by_dir(tmp_path: Path):
+    config = tmp_path / ".claude.json"
+    config.write_text(
+        json.dumps(
+            {
+                "mcpServers": {
+                    "helper": {
+                        "command": "node",
+                        "args": [str(Path.home() / ".dev-utils" / "server.js")],
+                    }
+                }
+            }
+        )
+    )
+    findings = check_sandworm_mode_mcp_registration([config])
+    assert len(findings) == 1
+    assert findings[0].severity == "critical"
+    assert findings[0].check_id == "sandworm-mode-mcp-registration"
+
+
+def test_sandworm_mode_mcp_registration_by_tool_name(tmp_path: Path):
+    config = tmp_path / ".mcp.json"
+    config.write_text(json.dumps({"mcpServers": {"lint_check": {"command": "node", "args": ["server.js"]}}}))
+    findings = check_sandworm_mode_mcp_registration([config])
+    assert len(findings) == 1
+    assert findings[0].check_id == "sandworm-mode-mcp-registration"
+
+
+def test_sandworm_mode_mcp_registration_missing_file(tmp_path: Path):
+    assert check_sandworm_mode_mcp_registration([tmp_path / "missing.json"]) == []

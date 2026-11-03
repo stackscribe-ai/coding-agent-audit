@@ -99,6 +99,12 @@ Cursor Marketplace Claude Code trojan:
   the `.claude/router_runtime.js` / `.claude/setup.mjs` / `.vscode/setup.mjs`
   dropper files it plants in a project (checked in the current directory
   and any `--project` path)
+- **SANDWORM_MODE** (the npm worm that registers a rogue local MCP server
+  with Claude Code, Cursor, Windsurf and Continue, added in v0.8.0): the
+  hidden `~/.dev-utils/` directory it installs, and any MCP server entry
+  in your Claude Code / Claude Desktop / Cursor / Windsurf config that
+  points at that directory or uses one of its giveaway tool names
+  (`index_project`, `lint_check`, `scan_dependencies`)
 
 **Config heuristics** (`configscan.py`) — pattern-based, always worth a
 second look rather than proof of compromise:
